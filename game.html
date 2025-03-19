@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>js-dos Multiplayer</title>
+    <style>
+        #jsdos {
+            width: 640px;
+            height: 480px;
+        }
+    </style>
+</head>
+<body>
+    <div id="jsdos"></div>
+    <script src="https://js-dos.com/v7/releases/latest/js-dos.js"></script>
+    <script>
+        (async () => {
+            const dosbox = await Dos(document.getElementById("jsdos"), {
+                wdosboxUrl: "https://js-dos.com/v7/releases/latest/wdosbox.js",
+                onprogress(percent) {
+                    console.log(`Loading: ${percent}%`);
+                }
+            });
+
+            dosbox.ready(async (fs, main) => {
+                try {
+                    const response = await fetch("your_game.zip");
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch your_game.zip: ${response.status}`);
+                    }
+                    const data = await response.arrayBuffer();
+                    fs.createFile("game.zip", new Uint8Array(data));
+
+                    await fs.extract("game.zip", "/");
+
+                    const exeName = findExe(fs);
+                    if (exeName) {
+                        main([exeName]);
+                    } else {
+                        console.error("No executable found in the zip file.");
+                    }
+
+                    const socket = new WebSocket('ws://localhost:8080');
+
+                    socket.onopen = () => {
+                        console.log('WebSocket connection established');
+                    };
+
+                    socket.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'state') {
+                            // Update game state in js-dos (placeholder)
+                            console.log('Received state:', data.state);
+                            // This is where you would update the game inside of the js-dos emulator.
+                            // This code will need to be changed based on your game.
+                        }
+                    };
+
+                    // Example: Send input to server (replace with actual input handling)
+                    document.addEventListener('keydown', (event) => {
+                        socket.send(JSON.stringify({ type: 'input', input: event.key }));
+                    });
+
+                } catch (error) {
+                    console.error("Error loading or running game:", error);
+                }
+
+                function findExe(fs) {
+                    const files = fs.readdirSync("/");
+                    for (const file of files) {
+                        if (file.toLowerCase().endsWith(".exe")) {
+                            return file;
+                        }
+                    }
+                    return null;
+                }
+            });
+
+        })();
+    </script>
+</body>
+</html>
